@@ -1,0 +1,35 @@
+library(survival)
+library(survminer)
+
+bioSurvival=function(inputFile=null, outFile=null){
+  rt=read.table(inputFile, header=T, sep="\t", check.names=F)
+  diff=survdiff(Surv(futime, fustat) ~ Risk,data = rt)
+  pValue=1-pchisq(diff$chisq,df=1)
+  if(pValue<0.001){
+    pValue="p<0.001"
+  }else{
+    pValue=paste0("p=",sprintf("%.03f",pValue))
+  }
+  fit <- survfit(Surv(futime, fustat) ~ Risk, data = rt)
+  
+  surPlot=ggsurvplot(fit, 
+                     data=rt,
+                     conf.int=T,
+                     pval=pValue,
+                     pval.size=6,
+                     legend.title="Risk",
+                     legend.labs=c("High risk", "Low risk"),
+                     xlab="Time(years)",
+                     ylab="Overall survival",
+                     break.time.by = 1,
+                     palette=c("red", "blue"),
+                     risk.table=TRUE,
+                     risk.table.title="",
+                     risk.table.height=.25)
+  pdf(file=outFile, width=6.5, height=5.5, onefile=FALSE)
+  print(surPlot)
+  dev.off()
+}
+
+bioSurvival(inputFile="risk.TCGA.txt", outFile="survival.TCGA.pdf")
+bioSurvival(inputFile="risk.GEO.txt", outFile="survival.GEO.pdf")

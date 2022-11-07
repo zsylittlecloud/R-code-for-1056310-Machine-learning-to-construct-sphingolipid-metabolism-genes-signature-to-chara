@@ -1,0 +1,113 @@
+library(data.table)
+library(GSVA)
+library(ggplot2)
+library(ggcor)
+Sys.setenv(LANGUAGE = "en") 
+options(stringsAsFactors = FALSE) 
+
+sigene <- read.csv("risk.csv", row.names = 1, check.names = F)
+
+
+immPath.score <- read.table("Immunotherapy positiveScore.txt",row.names = 1, check.names = F,sep = "\t")
+colnames(immPath.score)<-immPath.score[1,]
+immPath.score<-immPath.score[-1,]
+
+immPath.score <- rbind.data.frame(immPath.score,sigene)
+
+
+tcgaPath.score <- read.table("immStepScore.txt", row.names = 1,check.names = F,sep = "\t")
+colnames(tcgaPath.score)<-tcgaPath.score[1,]
+tcgaPath.score<-tcgaPath.score[-1,]
+
+tcgaPath.score <- rbind.data.frame(tcgaPath.score,sigene)
+
+
+
+
+
+immCorsigene <- NULL
+for (i in rownames(immPath.score)) {
+  cr <- cor.test(as.numeric(immPath.score[i,]),
+                 as.numeric(sigene),
+                 method = "pearson")
+  immCorsigene <- rbind.data.frame(immCorsigene,
+                                     data.frame(gene = "sigene",
+                                                path = i,
+                                                r = cr$estimate,
+                                                p = cr$p.value,
+                                                stringsAsFactors = F),
+                                     stringsAsFactors = F)
+}
+immCorsigene$sign <- ifelse(immCorsigene$r > 0,"pos","neg")
+immCorsigene$absR <- abs(immCorsigene$r)
+immCorsigene$rSeg <- as.character(cut(immCorsigene$absR,c(0,0.25,0.5,0.75,1),labels = c("0.25","0.50","0.75","1.00"),include.lowest = T))
+immCorsigene$pSeg <- as.character(cut(immCorsigene$p,c(0,0.001,0.01,0.05,1),labels = c("<0.001","<0.01","<0.05","ns"),include.lowest = T))
+immCorsigene[nrow(immCorsigene),"pSeg"] <- "Not Applicable"
+
+immCorsigene$rSeg <- factor(immCorsigene$rSeg, levels = c("0.25","0.50","0.75","1.00"))
+immCorsigene$pSeg <- factor(immCorsigene$pSeg, levels = c("<0.001","<0.01","<0.05","Not Applicable","ns"))
+immCorsigene$sign <- factor(immCorsigene$sign, levels = c("pos","neg"))
+
+colnames(immCorsigene)
+?anno_link()
+
+
+a<-apply(t(immPath.score),2,as.numeric)
+p1 <- quickcor(a, 
+               type = "lower",
+               show.diag = TRUE) + 
+  geom_colour() +
+  anno_link(immCorsigene, 
+           mapping = aes(colour = pSeg, size = rSeg, linetype = sign),
+           spec.key = "gene",
+           env.key = "path",
+           diag.label = FALSE) +
+  scale_size_manual(values = c(0.5, 1, 1.5, 2)) +
+  scale_color_manual(values = c("#19A078","#DA6003","#7570B4","#E8288E","#65A818")) +
+  scale_fill_gradient2(low = "#9483E1",mid = "white",high = "#E11953",midpoint=0) +
+  remove_axis("x")
+p1
+ggsave(filename = "ggcor plot in bottom left.pdf", width = 10,height = 8)
+
+
+tcgaCorsigene <- NULL
+for (i in rownames(tcgaPath.score)) {
+  cr <- cor.test(as.numeric(tcgaPath.score[i,]),
+                 as.numeric(sigene),
+                 method = "pearson")
+  tcgaCorsigene <- rbind.data.frame(tcgaCorsigene,
+                                      data.frame(gene = "sigene",
+                                                 path = i,
+                                                 r = cr$estimate,
+                                                 p = cr$p.value,
+                                                 stringsAsFactors = F),
+                                      stringsAsFactors = F)
+}
+tcgaCorsigene$sign <- ifelse(tcgaCorsigene$r > 0,"pos","neg")
+tcgaCorsigene$absR <- abs(tcgaCorsigene$r)
+tcgaCorsigene$rSeg <- as.character(cut(tcgaCorsigene$absR,c(0,0.25,0.5,0.75,1),labels = c("0.25","0.50","0.75","1.00"),include.lowest = T))
+tcgaCorsigene$pSeg <- as.character(cut(tcgaCorsigene$p,c(0,0.001,0.01,0.05,1),labels = c("<0.001","<0.01","<0.05","ns"),include.lowest = T))
+tcgaCorsigene[nrow(tcgaCorsigene),"pSeg"] <- "Not Applicable"
+
+tcgaCorsigene$rSeg <- factor(tcgaCorsigene$rSeg, levels = c("0.25","0.50","0.75","1.00"))
+tcgaCorsigene$pSeg <- factor(tcgaCorsigene$pSeg, levels = c("<0.001","<0.01","<0.05","Not Applicable","ns"))
+tcgaCorsigene$sign <- factor(tcgaCorsigene$sign, levels = c("pos","neg"))
+
+
+
+b<-apply(t(tcgaPath.score),2,as.numeric)
+p2 <- quickcor(b, 
+               type = "upper",
+               show.diag = TRUE) + 
+  geom_colour() +
+  anno_link(tcgaCorsigene, 
+           mapping = aes(colour = pSeg, size = rSeg, linetype = sign),
+           spec.key = "gene",
+           env.key = "path",
+           diag.label = FALSE) +
+  scale_size_manual(values = c(0.5, 1, 1.5, 2)) +
+  scale_color_manual(values = c("#19A078","#DA6003","#7570B4","#E8288E","#65A818")) +
+  scale_fill_gradient2(low = "#9483E1",mid = "white",high = "#E11953",midpoint=0) +
+  remove_axis("x")
+p2
+ggsave(filename = "ggcor plot in top right.pdf", width = 10,height = 8)

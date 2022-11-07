@@ -1,0 +1,31 @@
+library(limma)
+library(GSVA)
+library(GSEABase)
+library(pheatmap)
+library(reshape2)
+
+expFile="symbol.txt"        
+gmtFile="Imm steps gene set.gmt"      
+yifeng=read.table(expFile, header=T, sep="\t", check.names=F)
+yifeng=as.matrix(yifeng)
+rownames(yifeng)=yifeng[,1]
+exp=yifeng[,2:ncol(yifeng)]
+dimnames=list(rownames(exp),colnames(exp))
+bio_mat=matrix(as.numeric(as.matrix(exp)),nrow=nrow(exp),dimnames=dimnames)
+bio_mat=avereps(bio_mat)
+bio_mat=bio_mat[rowMeans(bio_mat)>0,]
+	
+geneSet=getGmt(gmtFile, geneIdType=SymbolIdentifier())
+	
+
+ssgseaScore=gsva(bio_mat, geneSet, method='ssgsea', kcdf='Gaussian', abs.ranking=TRUE)
+
+normalize=function(x){
+	return((x-min(x))/(max(x)-min(x)))}
+
+biodate=normalize(ssgseaScore)
+ssgsea_Out=rbind(id=colnames(biodate), biodate)
+write.table(ssgsea_Out, file="immStepScore.txt", sep="\t", quote=F, col.names=F)
+
+
+
